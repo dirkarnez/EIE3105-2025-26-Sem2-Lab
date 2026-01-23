@@ -28,6 +28,10 @@ https://github.com/arduino/ArduinoCore-avr/blob/87faf934a742fd6aa9fc269c99de5d52
 #include <avr/io.h>
 
 void Timer_1_Delay();		// Prototype for Delay Function
+
+void get_integer() {
+	// between 10 and 99
+}
  
 // wave frequency to 500 Hz. The duty cycle should be 50%.
 void Timer_0() {
@@ -60,6 +64,13 @@ void Timer_0() {
 	OCR0B = 49; //20% duty cycle, 249 * 0.2
 	DDRD = 0b00100000; // PD5 (OC0B), have to set as output
 }
+
+
+void input_capture() {
+	DDRB = 0; // ICP1
+}
+
+
 
 int main(void)
 {
