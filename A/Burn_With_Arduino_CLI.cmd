@@ -18,11 +18,12 @@ cd %DOWNLOADS_DIR% && ^
 %SystemRoot%\System32\curl.exe "https://github.com/arduino/arduino-cli/releases/download/0.34.2/arduino-cli_0.34.2_Windows_64bit.zip" -L -O &&^
 C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -command "Expand-Archive -LiteralPath 'arduino-cli_0.34.2_Windows_64bit.zip' -DestinationPath 'arduino-cli_0.34.2_Windows_64bit'"
 ) else (
-echo arduino-cli found &&^
+echo arduino-cli found
+)
+
 arduino-cli.exe core download arduino:avr &&^
 arduino-cli.exe core install arduino:avr &&^
 echo installing arduino:avr
-)
 
 for /f "tokens=*" %%a in (
 '%DOWNLOADS_DIR%\serial-locate-v1.0.0\serial-locate.exe --vid=2341 --pid=0043 --usb=true'
