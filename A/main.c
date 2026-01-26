@@ -84,6 +84,7 @@ void Capture() {
 int main(void)
 {
 	Timer_0();
+	Capture();
 
 
 
