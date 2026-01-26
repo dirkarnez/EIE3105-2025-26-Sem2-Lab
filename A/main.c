@@ -61,16 +61,37 @@ void Timer_0() {
 	DDRD = 0b00100000; // PD5 (OC0B), have to set as output
 }
 
+
+void Capture() {
+	unsigned char t1;
+	DDRD = 0xFF; //PORTD as output
+
+	DDRB = 0;//PORTB as intput
+	PORTB = 0xFF;
+
+	TCCR1A = 0; //Timer Mode = Normal
+	TCCR1B = (1 <<ICES1) | (1 << CS12) | (0 << CS11) | (0 << CS10);
+	//rising edge, prescaler = 256, no noise canceller
+	TIFR1 = (1<<ICF1); //clear ICF1 (The Input Capture Flag)
+	while ((TIFR1&(1<<ICF1)) == 0); //wait while ICF1 is clear
+	t1 = ICR1L; //first edge value (ICR, low byte)
+	TIFR1 = (1<<ICF1); //clear ICF1
+	while ((TIFR1&(1<<ICF1)) == 0); //wait while ICF1 is clear
+	PORTD = ICR1L – t1; //period = second edge – first edge
+	TIFR1 = (1<<ICF1); //clear ICF1
+}
+
 int main(void)
 {
-	DDRD = 0xFF;			// PB0 as Output
-	
+	Timer_0();
+
+
+
     while (1)				// INF Loop
     {
 		//Timer_1_Delay();	// Call 1 s Delay
 		// PORTB ^= (1<<0);	// Toggle
 		// PORTB = 0xFF;
-		Timer_0();
     }
 }
 
