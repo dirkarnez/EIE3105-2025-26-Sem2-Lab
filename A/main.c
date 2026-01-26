@@ -3,6 +3,10 @@
 #include <avr/interrupt.h>
 #include <stdbool.h>
 #define F_CPU 16000000UL
+#include <util/delay.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #define NORMAL_MODE_VALUE(timer_bit, n_seconds, prescaler) ((int)(((1UL) << (timer_bit)) - ((n_seconds) * ((F_CPU) / (prescaler)))))
 #define CTC_MODE_VALUE(n_seconds, prescaler) ((int)(((n_seconds) * ((F_CPU) / (prescaler))) - (1UL)))
@@ -28,6 +32,20 @@ https://github.com/arduino/ArduinoCore-avr/blob/87faf934a742fd6aa9fc269c99de5d52
 #include <avr/io.h>
 
 void Timer_1_Delay();		// Prototype for Delay Function
+
+
+void usart_init_interupt_mode()
+{
+	UCSR0B = (1<<TXEN0) /*enable TX*/ | (1<<RXEN0) /* enable RX */| (1<<UDRIE0) /* Register Empty Interrupt */| (1<<RXCIE0) /* Complete Interrupt Enable */;
+	UCSR0C = (1<<UCSZ00) | (1<<UCSZ01);  // no parity, 1 stop bit, 8-bit data
+	// UBRR0 = UBRR_VALUE_LOW_SPEED(9600);
+
+	UCSR0A = (1<<U2X0); //Double speed mode USART0
+	UBRR0 = UBRR_VALUE_DOUBLE_SPEED(115200);
+
+	// UBRR0L = (uint8_t)(F_CPU/(115200*16L)-1);
+	// UBRR0H = (F_CPU/(115200*16L)-1) >> 8;
+} 
  
 // wave frequency to 500 Hz. The duty cycle should be 50%.
 void Timer_0() {
@@ -57,16 +75,17 @@ void Timer_0() {
 		(0 << CS02) | (0 << CS01) | (1 << CS00);
 		
 	OCR0A = 249; //64kHz,  ((F_CPU) / (64000)) - 1
-	OCR0B = 49; //20% duty cycle, 249 * 0.2
+	OCR0B = 220; //20% duty cycle, 249 * 0.2
 	DDRD = 0b00100000; // PD5 (OC0B), have to set as output
 }
+
+unsigned char pulse_width = 0;
 
 
 void Capture() {
 	unsigned char t1;
-	DDRD = 0xFF; //PORTD as output
-
-	DDRB = 0;//PORTB as intput
+	// DDRD = 0xFF; //PORTD as output
+	
 	PORTB = 0xFF;
 
 	TCCR1A = 0; //Timer Mode = Normal
@@ -77,15 +96,33 @@ void Capture() {
 	t1 = ICR1L; //first edge value (ICR, low byte)
 	TIFR1 = (1<<ICF1); //clear ICF1
 	while ((TIFR1&(1<<ICF1)) == 0); //wait while ICF1 is clear
-	PORTD = ICR1L – t1; //period = second edge – first edge
+	pulse_width = ICR1L - t1; //period = second edge – first edge
 	TIFR1 = (1<<ICF1); //clear ICF1
 }
 
+
+
+unsigned int i = 0;
+
+char buffer[50]; 
+
+ISR(USART_UDRE_vect)
+{
+	UDR0 = buffer[i];
+	i = (i + 1) % (sizeof(buffer));
+};
+
 int main(void)
 {
+	memset(buffer,'\0', sizeof(buffer));
+
+	usart_init_interupt_mode();
+	sei(); //enable interrupts
+
 	Timer_0();
 	Capture();
 
+	
 
 
     while (1)				// INF Loop
@@ -93,6 +130,8 @@ int main(void)
 		//Timer_1_Delay();	// Call 1 s Delay
 		// PORTB ^= (1<<0);	// Toggle
 		// PORTB = 0xFF;
+		snprintf(buffer, sizeof(buffer), "pulse_width=%d\n", pulse_width);
+		_delay_ms(10);
     }
 }
 
