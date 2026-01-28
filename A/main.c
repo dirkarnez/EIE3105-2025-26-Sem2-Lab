@@ -84,9 +84,8 @@ unsigned char pulse_width = 0;
 
 void Capture() {
 	unsigned char t1;
-	// DDRD = 0xFF; //PORTD as output
-	
-	PORTB = 0xFF;
+	DDRB=0;
+	PORTB |= 1 << 0;//pullup enable
 
 	TCCR1A = 0; //Timer Mode = Normal
 	TCCR1B = (1 <<ICES1) | (1 << CS12) | (0 << CS11) | (0 << CS10);
@@ -96,11 +95,9 @@ void Capture() {
 	t1 = ICR1L; //first edge value (ICR, low byte)
 	TIFR1 = (1<<ICF1); //clear ICF1
 	while ((TIFR1&(1<<ICF1)) == 0); //wait while ICF1 is clear
-	pulse_width = ICR1L - t1; //period = second edge – first edge
+	pulse_width = ICR1L - t1; // period = second edge – first edge
 	TIFR1 = (1<<ICF1); //clear ICF1
 }
-
-
 
 unsigned int i = 0;
 
@@ -115,14 +112,14 @@ ISR(USART_UDRE_vect)
 int main(void)
 {
 	memset(buffer,'\0', sizeof(buffer));
-
+	sei();
 	usart_init_interupt_mode();
-	sei(); //enable interrupts
+	 //enable interrupts
 
 	Timer_0();
-	Capture();
 
-	
+
+
 
 
     while (1)				// INF Loop
@@ -130,7 +127,23 @@ int main(void)
 		//Timer_1_Delay();	// Call 1 s Delay
 		// PORTB ^= (1<<0);	// Toggle
 		// PORTB = 0xFF;
-		snprintf(buffer, sizeof(buffer), "pulse_width=%d\n", pulse_width);
+			//measure the pulse width of a pulse
+		unsigned char t1;
+		DDRD = 0xFF; //PORTD as output
+		PORTB = 0xFF;
+		TCCR1A = 0; //Timer Mode = Normal
+		TCCR1B = (1 <<ICES1) | (1 << CS12) | (0 << CS11) | (0 << CS10) | (1 << ICNC1);
+		//rising edge, prescaler = 256, no noise canceller
+		TIFR1 = (1<<ICF1); //clear ICF1 (The Input Capture Flag)
+		while ((TIFR1&(1<<ICF1)) == 0); //wait while ICF1 is clear
+		t1 = ICR1L; //first edge value (ICR, low byte)
+		TIFR1 = (1<<ICF1); //clear ICF1
+		TCCR1B = (0 <<ICES1) | (1 << CS12) | (0 << CS11) | (0 << CS10);
+		//falling edge
+		while ((TIFR1&(1<<ICF1)) == 0); //wait while ICF1 is clear
+		PORTD = ICR1L - t1; //pulse width = falling - rising
+		TIFR1 = (1<<ICF1); //clear ICF1
+		snprintf(buffer, sizeof(buffer), "pulse_width=%d\n", t1);
 		_delay_ms(10);
     }
 }
