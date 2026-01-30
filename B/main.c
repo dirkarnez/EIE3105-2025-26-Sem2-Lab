@@ -174,12 +174,9 @@ using ::testing::InitGoogleTest;
 
 // Demonstrate some basic assertions.
 TEST(MyTest, BasicAssertions) {
-//   // Expect two strings not to be equal.
-//   EXPECT_STRNE("hello", "world");
-//   // Expect equality.
-//   EXPECT_EQ(7 * 6, 42);
-	EXPECT_EQ(UBRR_VALUE(9600), 103);
-	EXPECT_EQ(UBRR_VALUE(4800), 207);
+	EXPECT_EQ(UBRR_VALUE_LOW_SPEED(9600), 103);
+	EXPECT_EQ(UBRR_VALUE_LOW_SPEED(4800), 207);
+	EXPECT_EQ(UBRR_VALUE_DOUBLE_SPEED(115200), 16);
 }
 
 

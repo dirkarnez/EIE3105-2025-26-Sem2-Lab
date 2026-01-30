@@ -76,96 +76,16 @@ void Timer_0() {
 	TCCR0B = (1 << WGM02) |
 		(1 << CS02) | (0 << CS01) | (0 << CS00); // prescaler 256
 		
-	OCR0A = OCRA0_VALUE(500, 256); //64kHz,  ((F_CPU) / (64000)) - 1
-	OCR0B = 49; //20% duty cycle, 249 * 0.2
+	char ocr0a_value = OCRA0_VALUE(500, 256);
+	OCR0A = ocr0a_value; //64kHz,  ((F_CPU) / (64000)) - 1
+	OCR0B = ocr0a_value * 0.5; //20% duty cycle, 249 * 0.2
 	DDRD = 0b00100000; // PD5 (OC0B), have to set as output
-}
-
-unsigned char pulse_width = 0;
-unsigned int t;
-
-unsigned int i = 0;
-
-char buffer[50]; 
-
-char chr = 0;
-ISR(USART_UDRE_vect)
-{
-	// if ((chr = buffer[i]) != 0 && i < sizeof(buffer)) {
-	// 	UDR0 = chr;
-	// 	i = (i + 1);
-	// }
-	UDR0 = buffer[i];
-	i = (i + 1) % (sizeof(buffer));
-	
-};
-
-
-void Capture() {
-	// DDRB=0;
-	PORTB = 0xFF; //pullup enable
-	// TCCR1A = 0; //Timer Mode = Normal
-	// TCCR1B = (1 <<ICES1) | (1 << CS12) | (0 << CS11) | (0 << CS10);
-	// //rising edge, prescaler = 256, no noise canceller
-	// TIFR1 = (1<<ICF1); //clear ICF1 (The Input Capture Flag)
-	// while ((TIFR1&(1<<ICF1)) == 0); //wait while ICF1 is clear
-	// t1 = ICR1L; //first edge value (ICR, low byte)
-	// TIFR1 = (1<<ICF1); //clear ICF1
-	// while ((TIFR1&(1<<ICF1)) == 0); //wait while ICF1 is clear
-	// pulse_width = ICR1L - t1; // period = second edge – first edge
-	// TIFR1 = (1<<ICF1); //clear ICF1
-
-	TCCR1A = 0; //Mode = Normal
-	TCCR1B = (1 <<ICES1) | 
-		(1 << CS12) | (0 << CS11) | (0 << CS10); //rising edge, no scaler, no noise canceller
-
-	while ((TIFR1&(1<<ICF1)) == 0);
-	t = ICR1;
-
-	TIFR1 = (1<<ICF1); //clear ICF1
-
-	while ((TIFR1&(1<<ICF1)) == 0);
-
-	t = ICR1 - t;
-
-	snprintf(buffer, sizeof(buffer), "pulse width in ticks=%d, freq=%d hz\n", t, (F_CPU / 256 / t));
 }
 
 int main(void)
 {
-	memset(buffer,'\0', sizeof(buffer));
-	
-	usart_init_interupt_mode();
-	//enable interrupts
-	
 	Timer_0();
-	Capture();
-
-	sei();
-
-    while (1)				// INF Loop
-    {
-		//Timer_1_Delay();	// Call 1 s Delay
-		// PORTB ^= (1<<0);	// Toggle
-		// PORTB = 0xFF;
-			//measure the pulse width of a pulse
-		
-		
-		// _delay_ms(20);
-    }
-}
-
-void Timer_1_Delay()
-{
-// Timer 1 16 bit timer with prescaler = 1024
-// 1 * 16M / 1024 = 15625
-	OCR1AH = 0x3D;		// CTC OCR
-	OCR1AL = 0x08;		// 15625 - 1 = 0x3D08
-	TCCR1A = 0x00;		// CTC Mode
-	TCCR1B = 0x0D;		// CTC Mode, Prescaler = 1024
-	while ((TIFR1 &(1<<OCF1A))==0);	// Continue Until Overflow
-	TCCR1B = 0x00;		// Stop Timer 1
-	TIFR1 = (1<<OCF1A);	// Reset OCR1A
+    while (1);
 }
 
 #else
@@ -174,12 +94,9 @@ using ::testing::InitGoogleTest;
 
 // Demonstrate some basic assertions.
 TEST(MyTest, BasicAssertions) {
-//   // Expect two strings not to be equal.
-//   EXPECT_STRNE("hello", "world");
-//   // Expect equality.
-//   EXPECT_EQ(7 * 6, 42);
-	EXPECT_EQ(UBRR_VALUE(9600), 103);
-	EXPECT_EQ(UBRR_VALUE(4800), 207);
+	EXPECT_EQ(UBRR_VALUE_LOW_SPEED(9600), 103);
+	EXPECT_EQ(UBRR_VALUE_LOW_SPEED(4800), 207);
+	EXPECT_EQ(UBRR_VALUE_DOUBLE_SPEED(115200), 16);
 }
 
 
