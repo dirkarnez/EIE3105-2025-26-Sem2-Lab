@@ -72,9 +72,9 @@ void Timer_0() {
 		(1 << WGM01) | (1 << WGM00);
 		
 	TCCR0B = (1 << WGM02) |
-		(1 << CS02) | (0 << CS01) | (0 << CS00);
+		(1 << CS02) | (0 << CS01) | (0 << CS00); // prescaler 256
 		
-	OCR0A = ((unsigned int)((F_CPU) / (500 * 64))) - 1; //64kHz,  ((F_CPU) / (64000)) - 1
+	OCR0A = ((unsigned int)((F_CPU) / (500 * 256))) - 1; //64kHz,  ((F_CPU) / (64000)) - 1
 	OCR0B = 49; //20% duty cycle, 249 * 0.2
 	DDRD = 0b00100000; // PD5 (OC0B), have to set as output
 }
