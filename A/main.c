@@ -72,15 +72,32 @@ void Timer_0() {
 		(1 << WGM01) | (1 << WGM00);
 		
 	TCCR0B = (1 << WGM02) |
-		(0 << CS02) | (0 << CS01) | (1 << CS00);
+		(1 << CS02) | (0 << CS01) | (0 << CS00);
 		
-	OCR0A = 249; //64kHz,  ((F_CPU) / (64000)) - 1
+	OCR0A = ((unsigned int)((F_CPU) / (500 * 64))) - 1; //64kHz,  ((F_CPU) / (64000)) - 1
 	OCR0B = 49; //20% duty cycle, 249 * 0.2
 	DDRD = 0b00100000; // PD5 (OC0B), have to set as output
 }
 
 unsigned char pulse_width = 0;
 unsigned int t;
+
+unsigned int i = 0;
+
+char buffer[50]; 
+
+char chr = 0;
+ISR(USART_UDRE_vect)
+{
+	// if ((chr = buffer[i]) != 0 && i < sizeof(buffer)) {
+	// 	UDR0 = chr;
+	// 	i = (i + 1);
+	// }
+	UDR0 = buffer[i];
+	i = (i + 1) % (sizeof(buffer));
+	
+};
+
 
 void Capture() {
 	// DDRB=0;
@@ -103,17 +120,9 @@ void Capture() {
 	TIFR1 = (1<<ICF1); //clear ICF1
 	while ((TIFR1&(1<<ICF1)) == 0);
 	t = ICR1 - t;
+	snprintf(buffer, sizeof(buffer), "pulse_width=%d\n", t);
 }
 
-unsigned int i = 0;
-
-char buffer[50]; 
-
-ISR(USART_UDRE_vect)
-{
-	UDR0 = buffer[i];
-	i = (i + 1) % (sizeof(buffer));
-};
 
 int main(void)
 {
@@ -123,6 +132,7 @@ int main(void)
 	 //enable interrupts
 
 	Timer_0();
+	Capture();
 
 	sei();
 
@@ -134,9 +144,9 @@ int main(void)
 		// PORTB ^= (1<<0);	// Toggle
 		// PORTB = 0xFF;
 			//measure the pulse width of a pulse
-		Capture();
-		snprintf(buffer, sizeof(buffer), "pulse_width=%d\n", t);
-		_delay_ms(20);
+		
+		
+		// _delay_ms(20);
     }
 }
 
