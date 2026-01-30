@@ -91,6 +91,8 @@ unsigned int t;
 unsigned int tx_buffer_index = 0;
 char tx_buffer[50]; 
 
+int tx_buffer_resetting = 0;
+
 char chtx = 0;
 ISR(USART_UDRE_vect)
 {
@@ -100,10 +102,12 @@ ISR(USART_UDRE_vect)
 	// 	UDR0 = chr;
 	// 	i = (i + 1);
 	// }
-	chtx = tx_buffer[tx_buffer_index];
-	if (chtx != '\0') {
-		UDR0 = chtx;
-		tx_buffer_index = (tx_buffer_index + 1) % (sizeof(tx_buffer));
+	if (tx_buffer_resetting == 0) {
+		chtx = tx_buffer[tx_buffer_index];
+		if (chtx != '\0') {
+			UDR0 = chtx;
+			tx_buffer_index = (tx_buffer_index + 1) % (sizeof(tx_buffer));
+		}
 	}
 };
 
@@ -151,8 +155,10 @@ void Capture() {
 
 	TIFR1 = (1<<ICF1); //clear ICF1 flag
 
-	tx_buffer_index = 0;
+	tx_buffer_resetting = 1;
 	snprintf(tx_buffer, sizeof(tx_buffer), "pulse width=%u ticks\n", t/*TICKS_TO_FREQ(t, prescaler)*/);
+	tx_buffer_index = 0;
+	tx_buffer_resetting = 0;
 }
 
 int done = 0;
