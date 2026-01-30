@@ -136,8 +136,8 @@ int main(void)
 	memset(buffer,'\0', sizeof(buffer));
 	
 	usart_init_interupt_mode();
-	 //enable interrupts
-
+	//enable interrupts
+	
 	Timer_0();
 	Capture();
 
