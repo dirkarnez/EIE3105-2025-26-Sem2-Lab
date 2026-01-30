@@ -55,7 +55,7 @@ int is_receiving = 1;
 int is_sending = 0;
 
 // wave frequency to 500 Hz. The duty cycle should be 50%.
-void Timer_0(unsigned char pulse_width_requested) {
+void Timer_0(volatile char pulse_width) {
 	//TCCR0A =
 	//(1 << COM0A1) | // 7
 	//(1 << COM0A0) | // 6
@@ -81,8 +81,8 @@ void Timer_0(unsigned char pulse_width_requested) {
 	TCCR0B = (1 << WGM02) |
 		(1 << CS02) | (0 << CS01) | (0 << CS00); // prescaler 256
 		
-	OCR0A = OCRA0_VALUE(500, prescaler); //64kHz,  ((F_CPU) / (64000)) - 1
-	OCR0B = pulse_width_requested; //20% duty cycle, 249 * 0.2
+	OCR0A = OCRA0_VALUE(500, prescaler); //ocr0a_value; //64kHz,  ((F_CPU) / (64000)) - 1
+	OCR0B = pulse_width; //20% duty cycle, 249 * 0.2
 	DDRD = 0b00100000; // PD5 (OC0B), have to set as output
 }
 
@@ -113,37 +113,43 @@ char rx_buffer[50];
 ISR(USART_RX_vect)
 {
 	ch = UDR0;
-
 	if (is_receiving == 1)
 	{
-		tx_buffer[tx_buffer_index] = rx_buffer[rx_buffer_index] = ch;
+		rx_buffer[rx_buffer_index] = ch;
+		tx_buffer[tx_buffer_index] = ch;
 		if (rx_buffer[rx_buffer_index] == '\n') {
 			is_receiving = 0;
-		} else {
-			rx_buffer_index = (rx_buffer_index + 1) % (sizeof(rx_buffer));
 		}
+		rx_buffer_index = (rx_buffer_index + 1) % (sizeof(rx_buffer));
 	}
 };
 
 void Capture() {
 	PORTB = 0xFF; //pullup enable
 	TCCR1A = 0; //Mode = Normal
+
 	TCCR1B = (1 <<ICES1) | 
 		(1 << CS12) | (0 << CS11) | (0 << CS10); //rising edge, no scaler, no noise canceller
 
 	while ((TIFR1&(1<<ICF1)) == 0);
-	t = ICR1;
+	t = ICR1; //first edge value
 
 	TIFR1 = (1<<ICF1); //clear ICF1
+
+	TCCR1B = (0 <<ICES1) | 
+		(1 << CS12) | (0 << CS11) | (0 << CS10); //failling edge, no scaler, no noise canceller
 
 	while ((TIFR1&(1<<ICF1)) == 0);
 
 	t = ICR1 - t;
 
-	snprintf(tx_buffer, sizeof(tx_buffer), "pulse width in ticks=%u, freq=%u hz\n", t, TICKS_TO_FREQ(t, prescaler));
+	TIFR1 = (1<<ICF1); //clear ICF1 flag
+
+	snprintf(tx_buffer, sizeof(tx_buffer), "pulse width=%u ticks\n", t/*TICKS_TO_FREQ(t, prescaler)*/);
 	tx_buffer_index = 0;
 }
 
+int done = 0;
 int main(void)
 {
 	memset(tx_buffer, '\0', sizeof(tx_buffer));
@@ -158,10 +164,11 @@ int main(void)
 
     while (1)
 	{
-		if (is_receiving == 0) {
+		if (is_receiving == 0 && done == 0) {
 			sscanf(rx_buffer, "%u", &pulse_width_requested);
-			Timer_0((unsigned char)pulse_width_requested);
+			Timer_0((volatile unsigned char)pulse_width_requested);
 			Capture();
+			done = 1;
 		}
 		_delay_ms(20);
 	}
