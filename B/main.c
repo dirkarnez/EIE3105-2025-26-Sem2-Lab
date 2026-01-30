@@ -112,9 +112,9 @@ char rx_buffer[50];
 
 ISR(USART_RX_vect)
 {
-	ch = UDR0;
 	if (is_receiving == 1)
 	{
+		ch = UDR0;
 		rx_buffer[rx_buffer_index] = ch;
 		tx_buffer[tx_buffer_index] = ch;
 		if (rx_buffer[rx_buffer_index] == '\n') {
@@ -143,7 +143,7 @@ void Capture() {
 
 	t = ICR1 - t;
 
-	TIFR1 = (1<<ICF1); //clear ICF1 flag
+	TIFR1 = (1<<ICF1); //clear ICF1 flag]
 
 	snprintf(tx_buffer, sizeof(tx_buffer), "pulse width=%u ticks\n", t/*TICKS_TO_FREQ(t, prescaler)*/);
 	tx_buffer_index = 0;
@@ -160,12 +160,12 @@ int main(void)
 	usart_init_interupt_mode();
 	sei();
 
-	unsigned int pulse_width_requested = 0;
+	int pulse_width_requested = 0;
 
     while (1)
 	{
 		if (is_receiving == 0 && done == 0) {
-			sscanf(rx_buffer, "%u", &pulse_width_requested);
+			sscanf(rx_buffer, "%d", &pulse_width_requested);
 			Timer_0((volatile unsigned char)pulse_width_requested);
 			Capture();
 			done = 1;
