@@ -94,6 +94,8 @@ char tx_buffer[50];
 char chtx = 0;
 ISR(USART_UDRE_vect)
 {
+	while ( !( UCSR0A & (1<<UDRE0)) );
+
 	// if ((chr = buffer[i]) != 0 && i < sizeof(buffer)) {
 	// 	UDR0 = chr;
 	// 	i = (i + 1);
@@ -112,14 +114,18 @@ char rx_buffer[50];
 
 ISR(USART_RX_vect)
 {
+	while ( !(UCSR0A & (1<<RXC0)) );
+
 	if (is_receiving == 1)
 	{
 		ch = UDR0;
-		rx_buffer[rx_buffer_index] = ch;
-		tx_buffer[tx_buffer_index] = ch;
-		if (rx_buffer[rx_buffer_index] == '\n') {
+		if (ch == '\n') {
 			is_receiving = 0;
+		} else {
+			rx_buffer[rx_buffer_index] = ch;
+			tx_buffer[tx_buffer_index] = ch;
 		}
+
 		rx_buffer_index = (rx_buffer_index + 1) % (sizeof(rx_buffer));
 	}
 };
@@ -143,10 +149,10 @@ void Capture() {
 
 	t = ICR1 - t;
 
-	TIFR1 = (1<<ICF1); //clear ICF1 flag]
+	TIFR1 = (1<<ICF1); //clear ICF1 flag
 
-	snprintf(tx_buffer, sizeof(tx_buffer), "pulse width=%u ticks\n", t/*TICKS_TO_FREQ(t, prescaler)*/);
 	tx_buffer_index = 0;
+	snprintf(tx_buffer, sizeof(tx_buffer), "pulse width=%u ticks\n", t/*TICKS_TO_FREQ(t, prescaler)*/);
 }
 
 int done = 0;
