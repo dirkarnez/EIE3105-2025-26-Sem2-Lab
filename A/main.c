@@ -143,8 +143,6 @@ int main(void)
 
 	sei();
 
-
-
     while (1)				// INF Loop
     {
 		//Timer_1_Delay();	// Call 1 s Delay
