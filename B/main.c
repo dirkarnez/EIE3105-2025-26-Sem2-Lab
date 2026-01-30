@@ -28,6 +28,7 @@ https://github.com/arduino/ArduinoCore-avr/blob/87faf934a742fd6aa9fc269c99de5d52
 
 #define UBRR_VALUE_LOW_SPEED(UART_BAUDRATE) ((unsigned char)(((F_CPU)/((UART_BAUDRATE) * (16UL)))-((double)(1UL))))
 #define UBRR_VALUE_DOUBLE_SPEED(UART_BAUDRATE) ((unsigned char)(((F_CPU)/((UART_BAUDRATE) * (8L)))-((double)(1UL))))
+unsigned int prescaler = 256;
 
 #include <avr/io.h>
 
@@ -48,9 +49,13 @@ void usart_init_interupt_mode()
 } 
  
 #define OCRA0_VALUE(TARGET_FREQ, PRESCALER) (((unsigned char)((unsigned int)((unsigned int)((F_CPU) / (TARGET_FREQ)) / (PRESCALER)))) - 1UL)
+#define TICKS_TO_FREQ(TICKS, PRESCALER) ((unsigned int)(((unsigned long)(F_CPU / PRESCALER)) / TICKS))
+
+int is_receiving = 1;
+int is_sending = 0;
 
 // wave frequency to 500 Hz. The duty cycle should be 50%.
-void Timer_0() {
+void Timer_0(unsigned char pulse_width_requested) {
 	//TCCR0A =
 	//(1 << COM0A1) | // 7
 	//(1 << COM0A0) | // 6
@@ -76,45 +81,52 @@ void Timer_0() {
 	TCCR0B = (1 << WGM02) |
 		(1 << CS02) | (0 << CS01) | (0 << CS00); // prescaler 256
 		
-	OCR0A = OCRA0_VALUE(500, 256); //64kHz,  ((F_CPU) / (64000)) - 1
-	OCR0B = 49; //20% duty cycle, 249 * 0.2
+	OCR0A = OCRA0_VALUE(500, prescaler); //64kHz,  ((F_CPU) / (64000)) - 1
+	OCR0B = pulse_width_requested; //20% duty cycle, 249 * 0.2
 	DDRD = 0b00100000; // PD5 (OC0B), have to set as output
 }
 
-unsigned char pulse_width = 0;
 unsigned int t;
 
-unsigned int i = 0;
+unsigned int tx_buffer_index = 0;
+char tx_buffer[50]; 
 
-char buffer[50]; 
-
-char chr = 0;
+char chtx = 0;
 ISR(USART_UDRE_vect)
 {
 	// if ((chr = buffer[i]) != 0 && i < sizeof(buffer)) {
 	// 	UDR0 = chr;
 	// 	i = (i + 1);
 	// }
-	UDR0 = buffer[i];
-	i = (i + 1) % (sizeof(buffer));
-	
+	chtx = tx_buffer[tx_buffer_index];
+	if (chtx != '\0') {
+		UDR0 = chtx;
+		tx_buffer_index = (tx_buffer_index + 1) % (sizeof(tx_buffer));
+	}
 };
 
+char ch = 0;
+
+unsigned int rx_buffer_index = 0;
+char rx_buffer[50];
+
+ISR(USART_RX_vect)
+{
+	ch = UDR0;
+
+	if (is_receiving == 1)
+	{
+		tx_buffer[tx_buffer_index] = rx_buffer[rx_buffer_index] = ch;
+		if (rx_buffer[rx_buffer_index] == '\n') {
+			is_receiving = 0;
+		} else {
+			rx_buffer_index = (rx_buffer_index + 1) % (sizeof(rx_buffer));
+		}
+	}
+};
 
 void Capture() {
-	// DDRB=0;
 	PORTB = 0xFF; //pullup enable
-	// TCCR1A = 0; //Timer Mode = Normal
-	// TCCR1B = (1 <<ICES1) | (1 << CS12) | (0 << CS11) | (0 << CS10);
-	// //rising edge, prescaler = 256, no noise canceller
-	// TIFR1 = (1<<ICF1); //clear ICF1 (The Input Capture Flag)
-	// while ((TIFR1&(1<<ICF1)) == 0); //wait while ICF1 is clear
-	// t1 = ICR1L; //first edge value (ICR, low byte)
-	// TIFR1 = (1<<ICF1); //clear ICF1
-	// while ((TIFR1&(1<<ICF1)) == 0); //wait while ICF1 is clear
-	// pulse_width = ICR1L - t1; // period = second edge – first edge
-	// TIFR1 = (1<<ICF1); //clear ICF1
-
 	TCCR1A = 0; //Mode = Normal
 	TCCR1B = (1 <<ICES1) | 
 		(1 << CS12) | (0 << CS11) | (0 << CS10); //rising edge, no scaler, no noise canceller
@@ -128,44 +140,31 @@ void Capture() {
 
 	t = ICR1 - t;
 
-	snprintf(buffer, sizeof(buffer), "pulse width in ticks=%d, freq=%d hz\n", t, (F_CPU / 256 / t));
+	snprintf(tx_buffer, sizeof(tx_buffer), "pulse width in ticks=%u, freq=%u hz\n", t, TICKS_TO_FREQ(t, prescaler));
+	tx_buffer_index = 0;
 }
 
 int main(void)
 {
-	memset(buffer,'\0', sizeof(buffer));
-	
-	usart_init_interupt_mode();
-	//enable interrupts
-	
-	Timer_0();
-	Capture();
+	memset(tx_buffer, '\0', sizeof(tx_buffer));
+	memset(rx_buffer, '\0', sizeof(rx_buffer));
 
+	is_receiving = 1;
+
+	usart_init_interupt_mode();
 	sei();
 
-    while (1)				// INF Loop
-    {
-		//Timer_1_Delay();	// Call 1 s Delay
-		// PORTB ^= (1<<0);	// Toggle
-		// PORTB = 0xFF;
-			//measure the pulse width of a pulse
-		
-		
-		// _delay_ms(20);
-    }
-}
+	unsigned int pulse_width_requested = 0;
 
-void Timer_1_Delay()
-{
-// Timer 1 16 bit timer with prescaler = 1024
-// 1 * 16M / 1024 = 15625
-	OCR1AH = 0x3D;		// CTC OCR
-	OCR1AL = 0x08;		// 15625 - 1 = 0x3D08
-	TCCR1A = 0x00;		// CTC Mode
-	TCCR1B = 0x0D;		// CTC Mode, Prescaler = 1024
-	while ((TIFR1 &(1<<OCF1A))==0);	// Continue Until Overflow
-	TCCR1B = 0x00;		// Stop Timer 1
-	TIFR1 = (1<<OCF1A);	// Reset OCR1A
+    while (1)
+	{
+		if (is_receiving == 0) {
+			sscanf(rx_buffer, "%u", &pulse_width_requested);
+			Timer_0((unsigned char)pulse_width_requested);
+			Capture();
+		}
+		_delay_ms(20);
+	}
 }
 
 #else
