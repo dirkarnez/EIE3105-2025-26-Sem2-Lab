@@ -47,6 +47,8 @@ void usart_init_interupt_mode()
 	// UBRR0H = (F_CPU/(115200*16L)-1) >> 8;
 } 
  
+#define OCRA0_VALUE(TARGET_FREQ, PRESCALER) (((unsigned char)((unsigned int)((unsigned int)((F_CPU) / (TARGET_FREQ)) / (PRESCALER)))) - 1UL)
+
 // wave frequency to 500 Hz. The duty cycle should be 50%.
 void Timer_0() {
 	//TCCR0A =
@@ -74,7 +76,7 @@ void Timer_0() {
 	TCCR0B = (1 << WGM02) |
 		(1 << CS02) | (0 << CS01) | (0 << CS00); // prescaler 256
 		
-	OCR0A = ((unsigned int)((F_CPU) / (500 * 256))) - 1; //64kHz,  ((F_CPU) / (64000)) - 1
+	OCR0A = OCRA0_VALUE(500, 256); //64kHz,  ((F_CPU) / (64000)) - 1
 	OCR0B = 49; //20% duty cycle, 249 * 0.2
 	DDRD = 0b00100000; // PD5 (OC0B), have to set as output
 }
@@ -114,15 +116,20 @@ void Capture() {
 	// TIFR1 = (1<<ICF1); //clear ICF1
 
 	TCCR1A = 0; //Mode = Normal
-	TCCR1B = 0x41; //rising edge, no scaler, no noise canceller
+	TCCR1B = (1 <<ICES1) | 
+		(1 << CS12) | (0 << CS11) | (0 << CS10); //rising edge, no scaler, no noise canceller
+
 	while ((TIFR1&(1<<ICF1)) == 0);
 	t = ICR1;
-	TIFR1 = (1<<ICF1); //clear ICF1
-	while ((TIFR1&(1<<ICF1)) == 0);
-	t = ICR1 - t;
-	snprintf(buffer, sizeof(buffer), "pulse_width=%d\n", t);
-}
 
+	TIFR1 = (1<<ICF1); //clear ICF1
+
+	while ((TIFR1&(1<<ICF1)) == 0);
+
+	t = ICR1 - t;
+
+	snprintf(buffer, sizeof(buffer), "pulse width in ticks=%d, freq=%d hz\n", t, (F_CPU / 256 / t));
+}
 
 int main(void)
 {
