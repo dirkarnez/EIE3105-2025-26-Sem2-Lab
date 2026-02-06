@@ -12,4 +12,4 @@ SET PATH=^
 %SOFTWARES_DIR%\STM32CubeIDE-portable-v1.6.1\plugins\com.st.stm32cube.ide.mcu.externaltools.cubeprogrammer.win32_2.1.400.202404281720\tools\bin;^
 %PROGRAM_FILES%\STMicroelectronics\STM32Cube\STM32CubeProgrammer\bin;
 
-cd .ci && ( (  STM32_Programmer_CLI.exe -c port=SWD freq=4000 -w EIE3105_STM32CubeIDE_STM32F103RB_Application.elf -s && echo ok ) || echo failed ) && pause
+cd Debug && ( (  STM32_Programmer_CLI.exe -c port=SWD freq=4000 -w EIE3105_STM32CubeIDE_STM32F103RB_Application.elf -s && echo ok ) || echo failed ) && pause

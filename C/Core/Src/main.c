@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include <stdio.h>
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -102,9 +103,6 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 			__HAL_TIM_SET_CAPTUREPOLARITY(htim, TIM_CHANNEL_1, TIM_INPUTCHANNELPOLARITY_RISING);
 			is_rising_edge = 1;
 		}
-
-		char AckBuf[] = {"æ”¶åˆ°è¨Šæ?¯\r\n"};
-		HAL_UART_Transmit_IT(&huart2, (uint8_t*)&AckBuf, sizeof(AckBuf));
 	}
 }
 
@@ -146,6 +144,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
   HAL_TIM_IC_Start_IT(&htim4, TIM_CHANNEL_1);
+  uint8_t BUFF[20] = { 0 };
 
   /* USER CODE END 2 */
 
@@ -153,6 +152,8 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	snprintf((char*)BUFF, sizeof(BUFF), "\nSystem Initiated!");
+	HAL_UART_Transmit(&huart2, BUFF, sizeof(BUFF), 0xFFFF);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -160,8 +161,6 @@ int main(void)
 	delay(50000);
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
 	delay(50000);
-
-
   }
   /* USER CODE END 3 */
 }
