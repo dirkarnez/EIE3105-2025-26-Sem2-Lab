@@ -19,6 +19,9 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include <stdio.h>
+#include <stdio.h>
+#include <stdint.h>
+#include <inttypes.h>
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -152,7 +155,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	snprintf((char*)BUFF, sizeof(BUFF), "\nSystem Initiated!");
+	snprintf((char*)BUFF, sizeof(BUFF), "pulse_width %" PRIu32 "\n", pulse_width);
 	HAL_UART_Transmit(&huart2, BUFF, sizeof(BUFF), 0xFFFF);
     /* USER CODE END WHILE */
 
