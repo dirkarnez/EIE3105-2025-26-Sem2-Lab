@@ -29,7 +29,7 @@ C:\PROGRA~1\7-Zip\7z.exe x Atmel.ATmega_DFP.2.1.506.atpack -o"%USERPROFILE%\Down
 del Atmel.ATmega_DFP.2.1.506.atpack
 )
 
-cd /d "%USERPROFILE%\Downloads" && ^
-%SystemRoot%\System32\curl.exe "https://marketplace.visualstudio.com/_apis/public/gallery/publishers/ms-vscode/vsextensions/cpptools/1.22.9/vspackage?targetPlatform=win32-x64" -L -O -J
+@REM cd /d "%USERPROFILE%\Downloads" && ^
+@REM %SystemRoot%\System32\curl.exe "https://marketplace.visualstudio.com/_apis/public/gallery/publishers/ms-vscode/vsextensions/cpptools/1.22.9/vspackage?targetPlatform=win32-x64" -L -O -J
 
 pause
