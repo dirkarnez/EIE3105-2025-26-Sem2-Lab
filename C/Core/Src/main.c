@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <inttypes.h>
+#include <string.h>
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -52,7 +53,7 @@ UART_HandleTypeDef huart2;
 /* USER CODE BEGIN PV */
 volatile uint32_t ic_value1 = 0; // Capture value at the first edge
 volatile uint32_t ic_value2 = 0; // Capture value at the second edge
-volatile uint32_t pulse_width = 0; // High time in timer ticks
+volatile uint32_t pulse_width_measured = 0; // High time in timer ticks
 volatile uint8_t is_rising_edge = 1; // Flag to track edge detection
 
 /* USER CODE END PV */
@@ -96,11 +97,11 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 			ic_value2 = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
 			if (ic_value2 > ic_value1) // Calculate pulse width
 			{
-				pulse_width = ic_value2 - ic_value1;
+				pulse_width_measured = ic_value2 - ic_value1;
 			}
 			else
 			{ // Handle overflow
-				pulse_width = (0xFFFF - ic_value1) + ic_value2 + 1;
+				pulse_width_measured = (0xFFFF - ic_value1) + ic_value2 + 1;
 			}
 			// Switch back to detect the rising edge
 			__HAL_TIM_SET_CAPTUREPOLARITY(htim, TIM_CHANNEL_1, TIM_INPUTCHANNELPOLARITY_RISING);
@@ -147,7 +148,12 @@ int main(void)
   /* USER CODE BEGIN 2 */
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
   HAL_TIM_IC_Start_IT(&htim4, TIM_CHANNEL_1);
-  uint8_t BUFF[20] = { 0 };
+  uint8_t tx_buffer[50] = { 0 };
+  uint8_t rx_buffer[50] = { 0 };
+  uint8_t rx_buffer_index = 0;
+  uint8_t rx_char = 0;
+  uint32_t previous_pulse_width_requested = 0;
+  uint32_t pulse_width_requested = 0;
 
   /* USER CODE END 2 */
 
@@ -155,15 +161,65 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	snprintf((char*)BUFF, sizeof(BUFF), "pulse_width %" PRIu32 "\n", pulse_width);
-	HAL_UART_Transmit(&huart2, BUFF, sizeof(BUFF), 0xFFFF);
+	memset(tx_buffer,'\0', sizeof(tx_buffer));
+	snprintf((char*)tx_buffer, sizeof(tx_buffer), "enter new pulse width:\n");
+	if(HAL_UART_Transmit(&huart2, tx_buffer, sizeof(tx_buffer), 0xFFFF) != HAL_OK)
+	{
+		Error_Handler();
+	}
+
+	do {
+		if(HAL_UART_Receive(&huart2, &rx_char, 1, 0xFFFF) != HAL_OK)
+		{
+			Error_Handler();
+			break;
+		} else {
+			rx_buffer[rx_buffer_index++] = rx_char;
+			huart2.Instance->DR = rx_char;
+			if (rx_char == '\n') {
+				break;
+			}
+		}
+	} while (1);
+
+	memset(tx_buffer,'\0', sizeof(tx_buffer));
+	snprintf((char*)tx_buffer, sizeof(tx_buffer), "setting PWM...\n");
+	if(HAL_UART_Transmit(&huart2, tx_buffer, sizeof(tx_buffer), 0xFFFF) != HAL_OK)
+	{
+		Error_Handler();
+	}
+
+	sscanf((char*)rx_buffer, "%" SCNu32 "\n" , &pulse_width_requested);
+	rx_buffer_index = 0;
+
+	if (previous_pulse_width_requested != pulse_width_requested) {
+		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, pulse_width_requested);
+
+		HAL_Delay(1000);
+
+		snprintf((char*)tx_buffer, sizeof(tx_buffer), "pulse_width_requested %" PRIu32 "\n", pulse_width_requested);
+		if(HAL_UART_Transmit(&huart2, tx_buffer, sizeof(tx_buffer), 0xFFFF) != HAL_OK)
+		{
+			Error_Handler();
+		}
+
+		previous_pulse_width_requested = pulse_width_requested;
+	}
+
+	memset(tx_buffer,'\0', sizeof(tx_buffer));
+	snprintf((char*)tx_buffer, sizeof(tx_buffer), "pulse_width_measured %" PRIu32 "\n", pulse_width_measured);
+	if(HAL_UART_Transmit(&huart2, tx_buffer, sizeof(tx_buffer), 0xFFFF) != HAL_OK)
+	{
+		Error_Handler();
+	}
+
     /* USER CODE END WHILE */
 
-    /* USER CODE BEGIN 3 */
-	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
-	delay(50000);
-	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
-	delay(50000);
+//    /* USER CODE BEGIN 3 */
+//	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+//	delay(50000);
+//	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+//	delay(50000);
   }
   /* USER CODE END 3 */
 }
