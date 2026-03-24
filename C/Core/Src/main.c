@@ -206,7 +206,7 @@ int main(void)
 		previous_pulse_width_requested = pulse_width_requested;
 	}
 
-	memset(tx_buffer,'\0', sizeof(tx_buffer));
+	memset(tx_buffer, '\0', sizeof(tx_buffer));
 	snprintf((char*)tx_buffer, sizeof(tx_buffer), "pulse_width_measured %" PRIu32 "\n", pulse_width_measured);
 	if(HAL_UART_Transmit(&huart2, tx_buffer, sizeof(tx_buffer), 0xFFFF) != HAL_OK)
 	{
