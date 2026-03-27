@@ -102,13 +102,13 @@ ISR(USART_UDRE_vect)
 	// 	UDR0 = chr;
 	// 	i = (i + 1);
 	// }
-	/*if (tx_buffer_resetting == 0) {*/
+	if (tx_buffer_resetting == 0) {
 		chtx = tx_buffer[tx_buffer_index];
 		if (chtx != '\0') {
 			UDR0 = chtx;
 			tx_buffer_index = (tx_buffer_index + 1) % (sizeof(tx_buffer));
 		}
-	// }
+	}
 };
 
 char ch = 0;
@@ -134,20 +134,6 @@ ISR(USART_RX_vect)
 	}
 };
 
-void add_to_tx(char* message, unsigned int size) {
-	int i = 0;
-	char ch = 0;
-
-	while (i < size) {
-		if ((ch = temp[i]) != '\0') {
-			tx_buffer[tx_buffer_index] = chr;
-		}
-	}
-}
-
-#define TEMP_SIZE (50)
-char temp[TEMP_SIZE];
-
 void Capture() {
 	PORTB = 0xFF; //pullup enable
 	TCCR1A = 0; //Mode = Normal
@@ -169,16 +155,14 @@ void Capture() {
 
 	TIFR1 = (1<<ICF1); //clear ICF1 flag
 
-
-	// tx_buffer_resetting = 1;
-	memset(temp, '\0', sizeof(temp));
-	snprintf(temp, sizeof(temp), "pulse width=%u ticks\n", t/*TICKS_TO_FREQ(t, prescaler)*/);
-	add_to_tx(temp, sizeof(temp));
-	// tx_buffer_index = 0;
-	// tx_buffer_resetting = 0;
+	tx_buffer_resetting = 1;
+	snprintf(tx_buffer, sizeof(tx_buffer), "pulse width=%u ticks\n", t/*TICKS_TO_FREQ(t, prescaler)*/);
+	tx_buffer_index = 0;
+	tx_buffer_resetting = 0;
 }
 
 int done = 0;
+
 int main(void)
 {
 	memset(tx_buffer, '\0', sizeof(tx_buffer));
@@ -193,13 +177,16 @@ int main(void)
 
     while (1)
 	{
-		if (is_receiving == 0 && done == 0) {
+		if (is_receiving == 1) {
+			snprintf(tx_buffer, sizeof(tx_buffer), "enter");
+		} else if (is_receiving == 0 && done == 0) {
 			sscanf(rx_buffer, "%d", &pulse_width_requested);
 			Timer_0((volatile unsigned char)pulse_width_requested);
 			Capture();
 			done = 1;
+			is_receiving = 1;
+			_delay_ms(20);
 		}
-		_delay_ms(20);
 	}
 }
 
@@ -221,4 +208,3 @@ int main(int argc, char** argv) {
 }
 
 #endif
-

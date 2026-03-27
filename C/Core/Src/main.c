@@ -15,14 +15,15 @@
   *
   ******************************************************************************
   */
-/* USER CODE END Header */
-/* Includes ------------------------------------------------------------------*/
-#include "main.h"
 #include <stdio.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <inttypes.h>
 #include <string.h>
+
+/* USER CODE END Header */
+/* Includes ------------------------------------------------------------------*/
+#include "main.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -193,7 +194,7 @@ int main(void)
 	rx_buffer_index = 0;
 
 	if (previous_pulse_width_requested != pulse_width_requested) {
-		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, pulse_width_requested);
+		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, (uint32_t)((uint32_t)(pulse_width_requested * 20) / 100));
 
 		HAL_Delay(1000);
 
@@ -207,7 +208,7 @@ int main(void)
 	}
 
 	memset(tx_buffer, '\0', sizeof(tx_buffer));
-	snprintf((char*)tx_buffer, sizeof(tx_buffer), "pulse_width_measured %" PRIu32 "\n", pulse_width_measured);
+	snprintf((char*)tx_buffer, sizeof(tx_buffer), "pulse_width_measured %" PRIu32 "\n", (uint32_t)((uint32_t)(pulse_width_measured * 20) / 100) );
 	if(HAL_UART_Transmit(&huart2, tx_buffer, sizeof(tx_buffer), 0xFFFF) != HAL_OK)
 	{
 		Error_Handler();
@@ -215,7 +216,7 @@ int main(void)
 
     /* USER CODE END WHILE */
 
-//    /* USER CODE BEGIN 3 */
+    /* USER CODE BEGIN 3 */
 //	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
 //	delay(50000);
 //	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
@@ -285,7 +286,7 @@ static void MX_TIM3_Init(void)
   htim3.Instance = TIM3;
   htim3.Init.Prescaler = 7200-1;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 500-1;
+  htim3.Init.Period = 20;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
@@ -344,7 +345,7 @@ static void MX_TIM4_Init(void)
   htim4.Instance = TIM4;
   htim4.Init.Prescaler = 7200-1;
   htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim4.Init.Period = 65535;
+  htim4.Init.Period = 20;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
