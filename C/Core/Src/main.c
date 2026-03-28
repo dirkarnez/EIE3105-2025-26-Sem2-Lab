@@ -88,8 +88,7 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 			// Capture rising edge
 			ic_value1 = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
 			// Switch to detect falling edge
-			__HAL_TIM_SET_CAPTUREPOLARITY(htim, TIM_CHANNEL_1,
-					TIM_INPUTCHANNELPOLARITY_FALLING);
+			__HAL_TIM_SET_CAPTUREPOLARITY(htim, TIM_CHANNEL_1, TIM_INPUTCHANNELPOLARITY_FALLING);
 			is_rising_edge = 0;
 		}
 		else
@@ -163,7 +162,7 @@ int main(void)
   while (1)
   {
 	memset(tx_buffer,'\0', sizeof(tx_buffer));
-	snprintf((char*)tx_buffer, sizeof(tx_buffer), "enter new pulse width:\n");
+	snprintf((char*)tx_buffer, sizeof(tx_buffer), "Enter new pulse width:\n");
 	if(HAL_UART_Transmit(&huart2, tx_buffer, sizeof(tx_buffer), 0xFFFF) != HAL_OK)
 	{
 		Error_Handler();
@@ -194,21 +193,20 @@ int main(void)
 	rx_buffer_index = 0;
 
 	if (previous_pulse_width_requested != pulse_width_requested) {
-		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, (uint32_t)((uint32_t)(pulse_width_requested * 20) / 100));
-
-		HAL_Delay(1000);
-
 		snprintf((char*)tx_buffer, sizeof(tx_buffer), "pulse_width_requested %" PRIu32 "\n", pulse_width_requested);
 		if(HAL_UART_Transmit(&huart2, tx_buffer, sizeof(tx_buffer), 0xFFFF) != HAL_OK)
 		{
 			Error_Handler();
 		}
 
+		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, pulse_width_requested);
+
+		HAL_Delay(200);
+
 		previous_pulse_width_requested = pulse_width_requested;
 	}
-
 	memset(tx_buffer, '\0', sizeof(tx_buffer));
-	snprintf((char*)tx_buffer, sizeof(tx_buffer), "pulse_width_measured %" PRIu32 "\n", (uint32_t)((uint32_t)(pulse_width_measured * 20) / 100) );
+	snprintf((char*)tx_buffer, sizeof(tx_buffer), "pulse_width_measured %" PRIu32 "\n", pulse_width_measured);
 	if(HAL_UART_Transmit(&huart2, tx_buffer, sizeof(tx_buffer), 0xFFFF) != HAL_OK)
 	{
 		Error_Handler();
