@@ -199,14 +199,14 @@ int main(void)
 			Error_Handler();
 		}
 
-		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, pulse_width_requested);
+		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, pulse_width_requested * 2);
 
 		HAL_Delay(200);
 
 		previous_pulse_width_requested = pulse_width_requested;
 	}
 	memset(tx_buffer, '\0', sizeof(tx_buffer));
-	snprintf((char*)tx_buffer, sizeof(tx_buffer), "pulse_width_measured %" PRIu32 "\n", pulse_width_measured);
+	snprintf((char*)tx_buffer, sizeof(tx_buffer), "pulse_width_measured %" PRIu32 "\n", pulse_width_measured / 2);
 	if(HAL_UART_Transmit(&huart2, tx_buffer, sizeof(tx_buffer), 0xFFFF) != HAL_OK)
 	{
 		Error_Handler();
@@ -282,9 +282,9 @@ static void MX_TIM3_Init(void)
 
   /* USER CODE END TIM3_Init 1 */
   htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 7200-1;
+  htim3.Init.Prescaler = 720-1;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 20;
+  htim3.Init.Period = 200;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
@@ -307,7 +307,7 @@ static void MX_TIM3_Init(void)
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 124-1;
+  sConfigOC.Pulse = 0;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
@@ -341,9 +341,9 @@ static void MX_TIM4_Init(void)
 
   /* USER CODE END TIM4_Init 1 */
   htim4.Instance = TIM4;
-  htim4.Init.Prescaler = 7200-1;
+  htim4.Init.Prescaler = 720-1;
   htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim4.Init.Period = 20;
+  htim4.Init.Period = 65535;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
