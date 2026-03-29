@@ -28,7 +28,6 @@ https://github.com/arduino/ArduinoCore-avr/blob/87faf934a742fd6aa9fc269c99de5d52
 
 #define UBRR_VALUE_LOW_SPEED(UART_BAUDRATE) ((unsigned char)(((F_CPU)/((UART_BAUDRATE) * (16UL)))-((double)(1UL))))
 #define UBRR_VALUE_DOUBLE_SPEED(UART_BAUDRATE) ((unsigned char)(((F_CPU)/((UART_BAUDRATE) * (8L)))-((double)(1UL))))
-unsigned int prescaler = 256;
 
 #include <avr/io.h>
 
@@ -54,8 +53,10 @@ void usart_init_interupt_mode()
 int is_receiving = 1;
 int is_sending = 0;
 
+#define MY_OCRA0_VALUE ((unsigned char) OCRA0_VALUE(500, 256))
+
 // wave frequency to 500 Hz. The duty cycle should be 50%.
-void Timer_0(volatile char pulse_width) {
+void Timer_0(volatile unsigned char pulse_width) {
 	//TCCR0A =
 	//(1 << COM0A1) | // 7
 	//(1 << COM0A0) | // 6
@@ -74,22 +75,21 @@ void Timer_0(volatile char pulse_width) {
 	//(1 << CS00);    // 0
 	
 	// timer mode 7: 
-	TCCR0A = (1 << COM0A1) | (0 << COM0A0) | //00
-		(1 << COM0B1) | (0 << COM0B0) |
-		(1 << WGM01) | (1 << WGM00);
+	TCCR0A = (1 << COM0A1) | (0 << COM0A0) | // Clear OC0A on Compare Match when up-counting. Set OC0A on Compare Match when down-counting.
+		(1 << COM0B1) | (0 << COM0B0) | // Clear OC0B on Compare Match
+		(1 << WGM01) | (1 << WGM00); // Fast PWM
 		
-	TCCR0B = (1 << WGM02) |
+	TCCR0B = (1 << WGM02) | // OCRA as TOP
 		(1 << CS02) | (0 << CS01) | (0 << CS00); // prescaler 256
 		
-	OCR0A = OCRA0_VALUE(500, prescaler); //ocr0a_value; //64kHz,  ((F_CPU) / (64000)) - 1
-	OCR0B = pulse_width; //20% duty cycle, 249 * 0.2
+	
+	OCR0A = (MY_OCRA0_VALUE); //ocr0a_value; //64kHz,  ((F_CPU) / (64000)) - 1
+	OCR0B = (unsigned char) ((MY_OCRA0_VALUE) * pulse_width / 100); //(unsigned char)((MY_OCRA0_VALUE) * ((unsigned char)(pulse_width / 100))); //20% duty cycle, 249 * 0.2
 	DDRD = 0b00100000; // PD5 (OC0B), have to set as output
 }
 
-unsigned int t;
-
 unsigned int tx_buffer_index = 0;
-char tx_buffer[50]; 
+char tx_buffer[50] = { 0 };
 
 int tx_buffer_resetting = 0;
 
@@ -114,7 +114,7 @@ ISR(USART_UDRE_vect)
 char ch = 0;
 
 unsigned int rx_buffer_index = 0;
-char rx_buffer[50];
+char rx_buffer[50] = { 0 };
 
 ISR(USART_RX_vect)
 {
@@ -135,11 +135,12 @@ ISR(USART_RX_vect)
 };
 
 void Capture() {
+	unsigned int t;
 	PORTB = 0xFF; //pullup enable
 	TCCR1A = 0; //Mode = Normal
 
 	TCCR1B = (1 <<ICES1) | 
-		(1 << CS12) | (0 << CS11) | (0 << CS10); //rising edge, no scaler, no noise canceller
+		(1 << CS12) | (0 << CS11) | (0 << CS10);
 
 	while ((TIFR1&(1<<ICF1)) == 0);
 	t = ICR1; //first edge value
@@ -147,7 +148,7 @@ void Capture() {
 	TIFR1 = (1<<ICF1); //clear ICF1
 
 	TCCR1B = (0 <<ICES1) | 
-		(1 << CS12) | (0 << CS11) | (0 << CS10); //failling edge, no scaler, no noise canceller
+		(1 << CS12) | (0 << CS11) | (0 << CS10);
 
 	while ((TIFR1&(1<<ICF1)) == 0);
 
@@ -156,7 +157,7 @@ void Capture() {
 	TIFR1 = (1<<ICF1); //clear ICF1 flag
 
 	tx_buffer_resetting = 1;
-	snprintf(tx_buffer, sizeof(tx_buffer), "pulse width=%u ticks\n", t/*TICKS_TO_FREQ(t, prescaler)*/);
+	snprintf(tx_buffer, sizeof(tx_buffer), "\nPulse width=%u ticks\n", t/*TICKS_TO_FREQ(t, prescaler)*/);
 	tx_buffer_index = 0;
 	tx_buffer_resetting = 0;
 }
@@ -171,6 +172,7 @@ int main(void)
 	is_receiving = 1;
 
 	usart_init_interupt_mode();
+
 	sei();
 
 	int pulse_width_requested = 0;
@@ -178,11 +180,13 @@ int main(void)
     while (1)
 	{
 		if (is_receiving == 1) {
-			snprintf(tx_buffer, sizeof(tx_buffer), "enter");
+			snprintf(tx_buffer, sizeof(tx_buffer), "Pulse width in %%: ");
 		} else if (is_receiving == 0 && done == 0) {
 			sscanf(rx_buffer, "%d", &pulse_width_requested);
+			cli();
 			Timer_0((volatile unsigned char)pulse_width_requested);
 			Capture();
+			sei();
 			done = 1;
 			is_receiving = 1;
 			_delay_ms(20);
