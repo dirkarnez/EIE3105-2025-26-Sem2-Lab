@@ -28,7 +28,6 @@ https://github.com/arduino/ArduinoCore-avr/blob/87faf934a742fd6aa9fc269c99de5d52
 
 #define UBRR_VALUE_LOW_SPEED(UART_BAUDRATE) ((unsigned char)(((F_CPU)/((UART_BAUDRATE) * (16UL)))-((double)(1UL))))
 #define UBRR_VALUE_DOUBLE_SPEED(UART_BAUDRATE) ((unsigned char)(((F_CPU)/((UART_BAUDRATE) * (8L)))-((double)(1UL))))
-unsigned int prescaler = 256;
 
 #include <avr/io.h>
 
