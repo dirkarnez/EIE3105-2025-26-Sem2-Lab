@@ -205,7 +205,7 @@ int main(void)
 
 		if (pulse_width_requested > 0) {
 			snprintf((char*)tx_buffer, sizeof(tx_buffer), "pulse_width_requested %% %" PRIu32 "\n", pulse_width_requested);
-			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, pulse_width_requested * 2);
+			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, pulse_width_requested * (htim3.Init.Period / 100));
 		} else {
 			snprintf((char*)tx_buffer, sizeof(tx_buffer), "Reading external PWM source\n");
 		}
@@ -221,7 +221,7 @@ int main(void)
 	}
 
 	memset(tx_buffer, '\0', sizeof(tx_buffer));
-	snprintf((char*)tx_buffer, sizeof(tx_buffer), "pulse_width_measured %% %" PRIu32 "\n", pulse_width_measured / 2);
+	snprintf((char*)tx_buffer, sizeof(tx_buffer), "pulse_width_measured %% %" PRIu32 "\n", pulse_width_measured * 100 / htim3.Init.Period);
 	if(HAL_UART_Transmit(&huart2, tx_buffer, sizeof(tx_buffer), 0xFFFF) != HAL_OK)
 	{
 		Error_Handler();
