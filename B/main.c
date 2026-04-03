@@ -47,10 +47,6 @@ void usart_init()
 } 
  
 #define OCRA0_VALUE(TARGET_FREQ, PRESCALER) (((unsigned char)((unsigned int)((unsigned int)((F_CPU) / (TARGET_FREQ)) / (PRESCALER)))) - 1UL)
-#define TICKS_TO_FREQ(TICKS, PRESCALER) ((unsigned int)(((unsigned long)(F_CPU / PRESCALER)) / TICKS))
-
-int is_receiving = 1;
-int is_sending = 0;
 
 #define MY_OCRA0_VALUE ((unsigned char) OCRA0_VALUE(500, 256))
 
@@ -72,6 +68,11 @@ void Timer_0(volatile unsigned char on_ticks_requested) {
 	//(1 << CS02) |   // 2
 	//(1 << CS01) |   // 1
 	//(1 << CS00);    // 0
+
+	if (on_ticks_requested == 0) {
+		TCCR0B = (0 << CS02) | (0 << CS01) | (0 << CS00); // close the timer
+		return;
+	}
 	
 	// timer mode 7: 
 	TCCR0A = (1 << COM0A1) | (0 << COM0A0) | // Clear OC0A on Compare Match when up-counting. Set OC0A on Compare Match when down-counting.
@@ -87,54 +88,13 @@ void Timer_0(volatile unsigned char on_ticks_requested) {
 	DDRD = 0b00100000; // PD5 (OC0B), have to set as output
 }
 
-unsigned int tx_buffer_index = 0;
 char tx_buffer[80] = { 0 };
-
-int tx_buffer_resetting = 0;
-
-char chtx = 0;
-// ISR(USART_UDRE_vect)
-// {
-// 	while ( !( UCSR0A & (1<<UDRE0)) );
-
-// 	// if ((chr = buffer[i]) != 0 && i < sizeof(buffer)) {
-// 	// 	UDR0 = chr;
-// 	// 	i = (i + 1);
-// 	// }
-// 	if (tx_buffer_resetting == 0) {
-// 		chtx = tx_buffer[tx_buffer_index];
-// 		if (chtx != '\0') {
-// 			UDR0 = chtx;
-// 			tx_buffer_index = (tx_buffer_index + 1) % (sizeof(tx_buffer));
-// 		}
-// 	}
-// };
-
-char ch = 0;
 
 size_t rx_buffer_index = 0;
 char rx_buffer[80] = { 0 };
 
-ISR(USART_RX_vect)
-{
-	while ( !(UCSR0A & (1<<RXC0)) );
 
-	if (is_receiving == 1)
-	{
-		ch = UDR0;
-		if (ch == '\n') {
-			is_receiving = 0;
-		} else {
-			rx_buffer[rx_buffer_index] = ch;
-			tx_buffer[tx_buffer_index] = ch;
-		}
-
-		rx_buffer_index = (rx_buffer_index + 1) % (sizeof(rx_buffer));
-	}
-};
-
-void Capture() {
-	unsigned int t;
+void Capture(unsigned int* pulse_width_ticks_measured) {
 	PORTB = 0xFF; //pullup enable
 	TCCR1A = 0; //Mode = Normal
 
@@ -142,7 +102,7 @@ void Capture() {
 		(1 << CS12) | (0 << CS11) | (0 << CS10);
 
 	while ((TIFR1&(1<<ICF1)) == 0);
-	t = ICR1; //first edge value
+	*pulse_width_ticks_measured = ICR1; //first edge value
 
 	TIFR1 = (1<<ICF1); //clear ICF1
 
@@ -151,17 +111,11 @@ void Capture() {
 
 	while ((TIFR1&(1<<ICF1)) == 0);
 
-	t = ICR1 - t;
+	*pulse_width_ticks_measured = ICR1 - *pulse_width_ticks_measured;
 
 	TIFR1 = (1<<ICF1); //clear ICF1 flag
-
-	tx_buffer_resetting = 1;
-	snprintf(tx_buffer, sizeof(tx_buffer), "\nPulse width=%u ticks\n", t/*TICKS_TO_FREQ(t, prescaler)*/);
-	tx_buffer_index = 0;
-	tx_buffer_resetting = 0;
 }
 
-int done = 0;
 
 void usart_send_char(const char ch)
 {
@@ -186,23 +140,24 @@ void usart_send_string(const char* str, size_t str_length)
 	}
 }
 
+void delay(void) {
+	volatile unsigned long i;
+	for (i = 0; i < 625000; i++);
+}
+
 int main(void)
 {
 	memset(tx_buffer, '\0', sizeof(tx_buffer));
 	memset(rx_buffer, '\0', sizeof(rx_buffer));
 
-	// is_receiving = 1;
-
 	unsigned char rx_char = '\0';
 
 	usart_init();
 
-	uint32_t pulse_width_requested = 0;
-	uint32_t pulse_width_ticks_measured = 0;
-	uint32_t previous_pulse_width_requested = 0;
+	unsigned int pulse_width_requested = 0;
+	unsigned int pulse_width_ticks_measured = 0;
+	unsigned int previous_pulse_width_requested = 0;
 
-	unsigned char welcome[] = "hello\n";
-	unsigned int loc = 0;
     while (1)
 	{
 		snprintf((char*)tx_buffer, sizeof(tx_buffer), "%d ticks per period, %luHz per period, Prescaler is %d\n", MY_OCRA0_VALUE, (F_CPU / (256 * (MY_OCRA0_VALUE + 1))), 256);
@@ -228,21 +183,20 @@ int main(void)
 			snprintf((char*)tx_buffer, sizeof(tx_buffer), "Setting PWM...\n");
 			usart_send_string((char*)tx_buffer, sizeof(tx_buffer));
 
-			sscanf((char*)rx_buffer, "%" SCNu32 "\n" , &pulse_width_requested);
+			sscanf((char*)rx_buffer, "%u\n" , &pulse_width_requested);
 			// HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
 		} else {
 			pulse_width_ticks_measured = 0;
 			pulse_width_requested = 0;
-
-			// HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_1);
+			Timer_0((volatile unsigned char)0); // stop the timer
 		}
 
 		if (pulse_width_requested == 0 || previous_pulse_width_requested != pulse_width_requested) {
 			memset(tx_buffer,'\0', sizeof(tx_buffer));
 
 			if (pulse_width_requested > 0) {
-				uint32_t on_ticks_requested = (pulse_width_requested * MY_OCRA0_VALUE) / 100;
-				snprintf((char*)tx_buffer, sizeof(tx_buffer), "Pulse width requested %" PRIu32 "%%, equal to %" PRIu32 " HIGH ticks\n", pulse_width_requested, on_ticks_requested);
+				unsigned int on_ticks_requested = (pulse_width_requested * MY_OCRA0_VALUE) / 100;
+				snprintf((char*)tx_buffer, sizeof(tx_buffer), "Pulse width requested %u%%, equal to %u HIGH ticks\n", pulse_width_requested, on_ticks_requested);
 				Timer_0((volatile unsigned char)on_ticks_requested);
 			} else {
 				snprintf((char*)tx_buffer, sizeof(tx_buffer), "Reading external PWM source\n");
@@ -250,29 +204,17 @@ int main(void)
 
 			usart_send_string((char*)tx_buffer, sizeof(tx_buffer));
 
-			_delay_ms(2000);
+			delay();
 
 			previous_pulse_width_requested = pulse_width_requested;
 		}
+		
+		pulse_width_ticks_measured = 0;
+		Capture(&pulse_width_ticks_measured);
 
 		memset(tx_buffer, '\0', sizeof(tx_buffer));
-		snprintf((char*)tx_buffer, sizeof(tx_buffer), "Pulse width measured %" PRIu32 "%%, equal to %" PRIu32 " HIGH ticks\n=======\n", pulse_width_ticks_measured * 100 / htim3.Init.Period, pulse_width_ticks_measured);
+		snprintf((char*)tx_buffer, sizeof(tx_buffer), "Pulse width measured %u%%, equal to %u HIGH ticks\n=======\n", (pulse_width_ticks_measured * 100) / MY_OCRA0_VALUE, pulse_width_ticks_measured);
 		usart_send_string((char*)tx_buffer, sizeof(tx_buffer));
-
-		// for ( ; welcome[loc]!='\0' ; loc++)
-			// usart_send(welcome[loc]);
-		// if (is_receiving == 1) {
-		// 	snprintf(tx_buffer, sizeof(tx_buffer), "Pulse width in %%: ");
-		// } else if (is_receiving == 0 && done == 0) {
-		// 	sscanf(rx_buffer, "%d", &pulse_width_requested);
-		// 	cli();
-		// 	Timer_0((volatile unsigned char)pulse_width_requested);
-		// 	Capture();
-		// 	sei();
-		// 	done = 1;
-		// 	is_receiving = 1;
-		// 	_delay_ms(20);
-		// }
 	}
 }
 
