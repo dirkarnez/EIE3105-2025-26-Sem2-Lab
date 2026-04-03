@@ -54,7 +54,7 @@ UART_HandleTypeDef huart2;
 /* USER CODE BEGIN PV */
 volatile uint32_t ic_value1 = 0; // Capture value at the first edge
 volatile uint32_t ic_value2 = 0; // Capture value at the second edge
-volatile uint32_t pulse_width_measured = 0; // High time in timer ticks
+volatile uint32_t pulse_width_ticks_measured = 0; // High time in timer ticks
 volatile uint8_t is_rising_edge = 1; // Flag to track edge detection
 
 /* USER CODE END PV */
@@ -97,7 +97,7 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 			ic_value2 = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
 			if (ic_value2 > ic_value1) // Calculate pulse width
 			{
-				pulse_width_measured = ic_value2 - ic_value1;
+				pulse_width_ticks_measured = ic_value2 - ic_value1;
 			}
 //			else
 //			{ // Handle overflow
@@ -147,12 +147,12 @@ int main(void)
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_IC_Start_IT(&htim4, TIM_CHANNEL_1);
-  uint8_t tx_buffer[50] = { 0 };
-  uint8_t rx_buffer[50] = { 0 };
+  uint8_t tx_buffer[60] = { 0 };
+  uint8_t rx_buffer[60] = { 0 };
   uint8_t rx_buffer_index = 0;
   uint8_t rx_char = 0;
-  uint32_t previous_pulse_width_requested = 0;
-  uint32_t pulse_width_requested = 0;
+  uint32_t previous_pulse_width_ticks_requested = 0;
+  uint32_t pulse_width_ticks_requested = 0;
 
   /* USER CODE END 2 */
 
@@ -161,7 +161,15 @@ int main(void)
   while (1)
   {
 	memset(tx_buffer,'\0', sizeof(tx_buffer));
-	snprintf((char*)tx_buffer, sizeof(tx_buffer), "New pulse width %% ('n' to read external PWM):\n");
+
+	snprintf((char*)tx_buffer, sizeof(tx_buffer), "%" PRIu32 " ticks per period, %" PRIu32 "Hz per period, Prescaler is %" PRIu32 "\n", htim3.Init.Period, (HAL_RCC_GetSysClockFreq() / (htim3.Init.Prescaler * htim3.Init.Period)), htim3.Init.Prescaler);
+	if(HAL_UART_Transmit(&huart2, tx_buffer, sizeof(tx_buffer), 0xFFFF) != HAL_OK)
+	{
+		Error_Handler();
+	}
+
+	memset(tx_buffer,'\0', sizeof(tx_buffer));
+	snprintf((char*)tx_buffer, sizeof(tx_buffer), "New pulse width (%%) ('n' to read external PWM):\n");
 	if(HAL_UART_Transmit(&huart2, tx_buffer, sizeof(tx_buffer), 0xFFFF) != HAL_OK)
 	{
 		Error_Handler();
@@ -184,28 +192,29 @@ int main(void)
 	memset(tx_buffer,'\0', sizeof(tx_buffer));
 	if (rx_buffer[0] != 'n')
 	{
-		snprintf((char*)tx_buffer, sizeof(tx_buffer), "setting PWM...\n");
+		snprintf((char*)tx_buffer, sizeof(tx_buffer), "Setting PWM...\n");
 		if(HAL_UART_Transmit(&huart2, tx_buffer, sizeof(tx_buffer), 0xFFFF) != HAL_OK)
 		{
 			Error_Handler();
 		}
-		sscanf((char*)rx_buffer, "%" SCNu32 "\n" , &pulse_width_requested);
+		sscanf((char*)rx_buffer, "%" SCNu32 "\n" , &pulse_width_ticks_requested);
 		HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
 	} else {
-		pulse_width_measured = 0;
-		pulse_width_requested = 0;
+		pulse_width_ticks_measured = 0;
+		pulse_width_ticks_requested = 0;
 
 		HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_1);
 	}
 
 	rx_buffer_index = 0;
 
-	if (pulse_width_requested == 0 || previous_pulse_width_requested != pulse_width_requested) {
+	if (pulse_width_ticks_requested == 0 || previous_pulse_width_ticks_requested != pulse_width_ticks_requested) {
 		memset(tx_buffer,'\0', sizeof(tx_buffer));
 
-		if (pulse_width_requested > 0) {
-			snprintf((char*)tx_buffer, sizeof(tx_buffer), "pulse_width_requested %% %" PRIu32 "\n", pulse_width_requested);
-			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, pulse_width_requested * (htim3.Init.Period / 100));
+		if (pulse_width_ticks_requested > 0) {
+			uint32_t on_ticks = pulse_width_ticks_requested * (htim3.Init.Period / 100);
+			snprintf((char*)tx_buffer, sizeof(tx_buffer), "Pulse width requested %" PRIu32 "%%, equal to %" PRIu32 " HIGH ticks\n", pulse_width_ticks_requested, on_ticks);
+			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, on_ticks);
 		} else {
 			snprintf((char*)tx_buffer, sizeof(tx_buffer), "Reading external PWM source\n");
 		}
@@ -217,11 +226,11 @@ int main(void)
 
 		HAL_Delay(2000);
 
-		previous_pulse_width_requested = pulse_width_requested;
+		previous_pulse_width_ticks_requested = pulse_width_ticks_requested;
 	}
 
 	memset(tx_buffer, '\0', sizeof(tx_buffer));
-	snprintf((char*)tx_buffer, sizeof(tx_buffer), "pulse_width_measured %% %" PRIu32 "\n", pulse_width_measured * 100 / htim3.Init.Period);
+	snprintf((char*)tx_buffer, sizeof(tx_buffer), "Pulse width measured %" PRIu32 "%%, equal to %" PRIu32 " HIGH ticks\n=======\n", pulse_width_ticks_measured * 100 / htim3.Init.Period, pulse_width_ticks_measured);
 	if(HAL_UART_Transmit(&huart2, tx_buffer, sizeof(tx_buffer), 0xFFFF) != HAL_OK)
 	{
 		Error_Handler();

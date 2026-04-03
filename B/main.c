@@ -33,10 +33,9 @@ https://github.com/arduino/ArduinoCore-avr/blob/87faf934a742fd6aa9fc269c99de5d52
 
 void Timer_1_Delay();		// Prototype for Delay Function
 
-
-void usart_init_interupt_mode()
+void usart_init()
 {
-	UCSR0B = (1<<TXEN0) /*enable TX*/ | (1<<RXEN0) /* enable RX */| (1<<UDRIE0) /* Register Empty Interrupt */| (1<<RXCIE0) /* Complete Interrupt Enable */;
+	UCSR0B = (1<<TXEN0) /*enable TX*/ | (1<<RXEN0) /* enable RX */ /*| (1<<UDRIE0)  Register Empty Interrupt */ /*| (1<<RXCIE0)  Complete Interrupt Enable */;
 	UCSR0C = (1<<UCSZ00) | (1<<UCSZ01);  // no parity, 1 stop bit, 8-bit data
 	// UBRR0 = UBRR_VALUE_LOW_SPEED(9600);
 
@@ -94,22 +93,22 @@ char tx_buffer[50] = { 0 };
 int tx_buffer_resetting = 0;
 
 char chtx = 0;
-ISR(USART_UDRE_vect)
-{
-	while ( !( UCSR0A & (1<<UDRE0)) );
+// ISR(USART_UDRE_vect)
+// {
+// 	while ( !( UCSR0A & (1<<UDRE0)) );
 
-	// if ((chr = buffer[i]) != 0 && i < sizeof(buffer)) {
-	// 	UDR0 = chr;
-	// 	i = (i + 1);
-	// }
-	if (tx_buffer_resetting == 0) {
-		chtx = tx_buffer[tx_buffer_index];
-		if (chtx != '\0') {
-			UDR0 = chtx;
-			tx_buffer_index = (tx_buffer_index + 1) % (sizeof(tx_buffer));
-		}
-	}
-};
+// 	// if ((chr = buffer[i]) != 0 && i < sizeof(buffer)) {
+// 	// 	UDR0 = chr;
+// 	// 	i = (i + 1);
+// 	// }
+// 	if (tx_buffer_resetting == 0) {
+// 		chtx = tx_buffer[tx_buffer_index];
+// 		if (chtx != '\0') {
+// 			UDR0 = chtx;
+// 			tx_buffer_index = (tx_buffer_index + 1) % (sizeof(tx_buffer));
+// 		}
+// 	}
+// };
 
 char ch = 0;
 
@@ -171,26 +170,32 @@ int main(void)
 
 	is_receiving = 1;
 
-	usart_init_interupt_mode();
+	usart_init();
 
 	sei();
 
 	int pulse_width_requested = 0;
 
+	unsigned char welcome[] = "hello\n";
+	unsigned int loc = 0;
     while (1)
 	{
-		if (is_receiving == 1) {
-			snprintf(tx_buffer, sizeof(tx_buffer), "Pulse width in %%: ");
-		} else if (is_receiving == 0 && done == 0) {
-			sscanf(rx_buffer, "%d", &pulse_width_requested);
-			cli();
-			Timer_0((volatile unsigned char)pulse_width_requested);
-			Capture();
-			sei();
-			done = 1;
-			is_receiving = 1;
-			_delay_ms(20);
-		}
+		  
+		
+		// for ( ; welcome[loc]!='\0' ; loc++)
+			// usart_send(welcome[loc]);
+		// if (is_receiving == 1) {
+		// 	snprintf(tx_buffer, sizeof(tx_buffer), "Pulse width in %%: ");
+		// } else if (is_receiving == 0 && done == 0) {
+		// 	sscanf(rx_buffer, "%d", &pulse_width_requested);
+		// 	cli();
+		// 	Timer_0((volatile unsigned char)pulse_width_requested);
+		// 	Capture();
+		// 	sei();
+		// 	done = 1;
+		// 	is_receiving = 1;
+		// 	_delay_ms(20);
+		// }
 	}
 }
 
