@@ -55,7 +55,7 @@ int is_sending = 0;
 #define MY_OCRA0_VALUE ((unsigned char) OCRA0_VALUE(500, 256))
 
 // wave frequency to 500 Hz. The duty cycle should be 50%.
-void Timer_0(volatile unsigned char pulse_width) {
+void Timer_0(volatile unsigned char on_ticks_requested) {
 	//TCCR0A =
 	//(1 << COM0A1) | // 7
 	//(1 << COM0A0) | // 6
@@ -83,12 +83,12 @@ void Timer_0(volatile unsigned char pulse_width) {
 		
 	
 	OCR0A = (MY_OCRA0_VALUE); //ocr0a_value; //64kHz,  ((F_CPU) / (64000)) - 1
-	OCR0B = (unsigned char) ((MY_OCRA0_VALUE) * pulse_width / 100); //(unsigned char)((MY_OCRA0_VALUE) * ((unsigned char)(pulse_width / 100))); //20% duty cycle, 249 * 0.2
+	OCR0B = on_ticks_requested; //(unsigned char)((MY_OCRA0_VALUE) * ((unsigned char)(pulse_width / 100))); //20% duty cycle, 249 * 0.2
 	DDRD = 0b00100000; // PD5 (OC0B), have to set as output
 }
 
 unsigned int tx_buffer_index = 0;
-char tx_buffer[50] = { 0 };
+char tx_buffer[80] = { 0 };
 
 int tx_buffer_resetting = 0;
 
@@ -112,8 +112,8 @@ char chtx = 0;
 
 char ch = 0;
 
-unsigned int rx_buffer_index = 0;
-char rx_buffer[50] = { 0 };
+size_t rx_buffer_index = 0;
+char rx_buffer[80] = { 0 };
 
 ISR(USART_RX_vect)
 {
@@ -163,25 +163,102 @@ void Capture() {
 
 int done = 0;
 
+void usart_send_char(const char ch)
+{
+	while(!(UCSR0A &(1<<UDRE0)));
+	UDR0 = ch;
+}
+
+void usart_read_char(unsigned char* ptr_ch)
+{
+	while(!(UCSR0A & (1<<RXC0)));
+	*ptr_ch = UDR0;
+}
+
+void usart_send_string(const char* str, size_t str_length)
+{
+	for (size_t i = 0; i < str_length; i++) {
+		if (str[i] != '\0') {
+			usart_send_char(str[i]);
+		} else {
+			break;
+		}
+	}
+}
+
 int main(void)
 {
 	memset(tx_buffer, '\0', sizeof(tx_buffer));
 	memset(rx_buffer, '\0', sizeof(rx_buffer));
 
-	is_receiving = 1;
+	// is_receiving = 1;
+
+	unsigned char rx_char = '\0';
 
 	usart_init();
 
-	sei();
-
-	int pulse_width_requested = 0;
+	uint32_t pulse_width_requested = 0;
+	uint32_t pulse_width_ticks_measured = 0;
+	uint32_t previous_pulse_width_requested = 0;
 
 	unsigned char welcome[] = "hello\n";
 	unsigned int loc = 0;
     while (1)
 	{
-		  
-		
+		snprintf((char*)tx_buffer, sizeof(tx_buffer), "%d ticks per period, %luHz per period, Prescaler is %d\n", MY_OCRA0_VALUE, (F_CPU / (256 * (MY_OCRA0_VALUE + 1))), 256);
+		usart_send_string((char*)tx_buffer, sizeof(tx_buffer));
+
+		memset(tx_buffer,'\0', sizeof(tx_buffer));
+		snprintf((char*)tx_buffer, sizeof(tx_buffer), "New pulse width (%%) ('n' to read external PWM):\n");
+		usart_send_string((char*)tx_buffer, sizeof(tx_buffer));
+
+		rx_buffer_index = 0;
+		do {
+			usart_read_char(&rx_char);
+			rx_buffer[rx_buffer_index++] = rx_char;
+			usart_send_char(rx_char);
+			if (rx_char == '\n') {
+				break;
+			}
+		} while (1);
+
+		memset(tx_buffer,'\0', sizeof(tx_buffer));
+		if (rx_buffer[0] != 'n')
+		{
+			snprintf((char*)tx_buffer, sizeof(tx_buffer), "Setting PWM...\n");
+			usart_send_string((char*)tx_buffer, sizeof(tx_buffer));
+
+			sscanf((char*)rx_buffer, "%" SCNu32 "\n" , &pulse_width_requested);
+			// HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
+		} else {
+			pulse_width_ticks_measured = 0;
+			pulse_width_requested = 0;
+
+			// HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_1);
+		}
+
+		if (pulse_width_requested == 0 || previous_pulse_width_requested != pulse_width_requested) {
+			memset(tx_buffer,'\0', sizeof(tx_buffer));
+
+			if (pulse_width_requested > 0) {
+				uint32_t on_ticks_requested = (pulse_width_requested * MY_OCRA0_VALUE) / 100;
+				snprintf((char*)tx_buffer, sizeof(tx_buffer), "Pulse width requested %" PRIu32 "%%, equal to %" PRIu32 " HIGH ticks\n", pulse_width_requested, on_ticks_requested);
+				Timer_0((volatile unsigned char)on_ticks_requested);
+			} else {
+				snprintf((char*)tx_buffer, sizeof(tx_buffer), "Reading external PWM source\n");
+			}
+
+			usart_send_string((char*)tx_buffer, sizeof(tx_buffer));
+
+			_delay_ms(2000);
+
+			previous_pulse_width_requested = pulse_width_requested;
+		}
+
+		memset(tx_buffer, '\0', sizeof(tx_buffer));
+		snprintf((char*)tx_buffer, sizeof(tx_buffer), "Pulse width measured %" PRIu32 "%%, equal to %" PRIu32 " HIGH ticks\n=======\n", pulse_width_ticks_measured * 100 / htim3.Init.Period, pulse_width_ticks_measured);
+		usart_send_string((char*)tx_buffer, sizeof(tx_buffer));
+
 		// for ( ; welcome[loc]!='\0' ; loc++)
 			// usart_send(welcome[loc]);
 		// if (is_receiving == 1) {

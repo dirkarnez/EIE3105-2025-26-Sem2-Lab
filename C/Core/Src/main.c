@@ -151,8 +151,8 @@ int main(void)
   uint8_t rx_buffer[60] = { 0 };
   uint8_t rx_buffer_index = 0;
   uint8_t rx_char = 0;
-  uint32_t previous_pulse_width_ticks_requested = 0;
-  uint32_t pulse_width_ticks_requested = 0;
+  uint32_t previous_pulse_width_requested = 0;
+  uint32_t pulse_width_requested = 0;
 
   /* USER CODE END 2 */
 
@@ -174,6 +174,8 @@ int main(void)
 	{
 		Error_Handler();
 	}
+
+	rx_buffer_index = 0;
 
 	do {
 		if(HAL_UART_Receive(&huart2, &rx_char, 1, 0xFFFF) != HAL_OK)
@@ -197,23 +199,21 @@ int main(void)
 		{
 			Error_Handler();
 		}
-		sscanf((char*)rx_buffer, "%" SCNu32 "\n" , &pulse_width_ticks_requested);
+		sscanf((char*)rx_buffer, "%" SCNu32 "\n" , &pulse_width_requested);
 		HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
 	} else {
 		pulse_width_ticks_measured = 0;
-		pulse_width_ticks_requested = 0;
+		pulse_width_requested = 0;
 
 		HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_1);
 	}
 
-	rx_buffer_index = 0;
-
-	if (pulse_width_ticks_requested == 0 || previous_pulse_width_ticks_requested != pulse_width_ticks_requested) {
+	if (pulse_width_requested == 0 || previous_pulse_width_requested != pulse_width_requested) {
 		memset(tx_buffer,'\0', sizeof(tx_buffer));
 
-		if (pulse_width_ticks_requested > 0) {
-			uint32_t on_ticks = pulse_width_ticks_requested * (htim3.Init.Period / 100);
-			snprintf((char*)tx_buffer, sizeof(tx_buffer), "Pulse width requested %" PRIu32 "%%, equal to %" PRIu32 " HIGH ticks\n", pulse_width_ticks_requested, on_ticks);
+		if (pulse_width_requested > 0) {
+			uint32_t on_ticks_requested = pulse_width_requested * (htim3.Init.Period / 100);
+			snprintf((char*)tx_buffer, sizeof(tx_buffer), "Pulse width requested %" PRIu32 "%%, equal to %" PRIu32 " HIGH ticks\n", pulse_width_requested, on_ticks_requested);
 			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, on_ticks);
 		} else {
 			snprintf((char*)tx_buffer, sizeof(tx_buffer), "Reading external PWM source\n");
@@ -226,7 +226,7 @@ int main(void)
 
 		HAL_Delay(2000);
 
-		previous_pulse_width_ticks_requested = pulse_width_ticks_requested;
+		previous_pulse_width_requested = pulse_width_requested;
 	}
 
 	memset(tx_buffer, '\0', sizeof(tx_buffer));
