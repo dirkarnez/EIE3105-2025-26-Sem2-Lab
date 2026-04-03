@@ -147,8 +147,8 @@ int main(void)
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_IC_Start_IT(&htim4, TIM_CHANNEL_1);
-  uint8_t tx_buffer[60] = { 0 };
-  uint8_t rx_buffer[60] = { 0 };
+  uint8_t tx_buffer[80] = { 0 };
+  uint8_t rx_buffer[80] = { 0 };
   uint8_t rx_buffer_index = 0;
   uint8_t rx_char = 0;
   uint32_t previous_pulse_width_requested = 0;
@@ -162,7 +162,7 @@ int main(void)
   {
 	memset(tx_buffer,'\0', sizeof(tx_buffer));
 
-	snprintf((char*)tx_buffer, sizeof(tx_buffer), "%" PRIu32 " ticks per period, %" PRIu32 "Hz per period, Prescaler is %" PRIu32 "\n", htim3.Init.Period, (HAL_RCC_GetSysClockFreq() / (htim3.Init.Prescaler * htim3.Init.Period)), htim3.Init.Prescaler);
+	snprintf((char*)tx_buffer, sizeof(tx_buffer), "[stm32f103rbt6]\n%" PRIu32 " ticks per period, %" PRIu32 "Hz per period, Prescaler is %" PRIu32 "\n", htim3.Init.Period, (HAL_RCC_GetSysClockFreq() / (htim3.Init.Prescaler * htim3.Init.Period)), htim3.Init.Prescaler);
 	if(HAL_UART_Transmit(&huart2, tx_buffer, sizeof(tx_buffer), 0xFFFF) != HAL_OK)
 	{
 		Error_Handler();
@@ -214,7 +214,7 @@ int main(void)
 		if (pulse_width_requested > 0) {
 			uint32_t on_ticks_requested = pulse_width_requested * (htim3.Init.Period / 100);
 			snprintf((char*)tx_buffer, sizeof(tx_buffer), "Pulse width requested %" PRIu32 "%%, equal to %" PRIu32 " HIGH ticks\n", pulse_width_requested, on_ticks_requested);
-			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, on_ticks);
+			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, on_ticks_requested);
 		} else {
 			snprintf((char*)tx_buffer, sizeof(tx_buffer), "Reading external PWM source\n");
 		}

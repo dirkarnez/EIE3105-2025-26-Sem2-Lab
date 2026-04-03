@@ -3,7 +3,6 @@
 #include <avr/interrupt.h>
 #include <stdbool.h>
 #define F_CPU 16000000UL
-#include <util/delay.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -96,15 +95,20 @@ char rx_buffer[80] = { 0 };
 
 void Capture(unsigned int* pulse_width_ticks_measured) {
 	PORTB = 0xFF; //pullup enable
-	TCCR1A = 0; //Mode = Normal
+	DDRB &= ~(1 << 0); // PB0 (ICP1) as input
+
+	TCCR1A = 0; // Mode = Normal
 
 	TCCR1B = (1 <<ICES1) | 
 		(1 << CS12) | (0 << CS11) | (0 << CS10);
 
+	TIFR1 = (1<<ICF1); //clear ICF1 flag
+
 	while ((TIFR1&(1<<ICF1)) == 0);
+
 	*pulse_width_ticks_measured = ICR1; //first edge value
 
-	TIFR1 = (1<<ICF1); //clear ICF1
+	TIFR1 = (1<<ICF1); //clear ICF1 flag
 
 	TCCR1B = (0 <<ICES1) | 
 		(1 << CS12) | (0 << CS11) | (0 << CS10);
@@ -115,7 +119,6 @@ void Capture(unsigned int* pulse_width_ticks_measured) {
 
 	TIFR1 = (1<<ICF1); //clear ICF1 flag
 }
-
 
 void usart_send_char(const char ch)
 {
@@ -147,6 +150,8 @@ void delay(void) {
 
 int main(void)
 {
+	cli();
+
 	memset(tx_buffer, '\0', sizeof(tx_buffer));
 	memset(rx_buffer, '\0', sizeof(rx_buffer));
 
@@ -160,7 +165,7 @@ int main(void)
 
     while (1)
 	{
-		snprintf((char*)tx_buffer, sizeof(tx_buffer), "%d ticks per period, %luHz per period, Prescaler is %d\n", MY_OCRA0_VALUE, (F_CPU / (256 * (MY_OCRA0_VALUE + 1))), 256);
+		snprintf((char*)tx_buffer, sizeof(tx_buffer), "[atmega328p]\n%d ticks per period, %luHz per period, Prescaler is %d\n", MY_OCRA0_VALUE, (F_CPU / (256 * (MY_OCRA0_VALUE + 1))), 256);
 		usart_send_string((char*)tx_buffer, sizeof(tx_buffer));
 
 		memset(tx_buffer,'\0', sizeof(tx_buffer));
@@ -195,7 +200,7 @@ int main(void)
 			memset(tx_buffer,'\0', sizeof(tx_buffer));
 
 			if (pulse_width_requested > 0) {
-				unsigned int on_ticks_requested = (pulse_width_requested * MY_OCRA0_VALUE) / 100;
+				unsigned char on_ticks_requested = (pulse_width_requested * MY_OCRA0_VALUE) / 100;
 				snprintf((char*)tx_buffer, sizeof(tx_buffer), "Pulse width requested %u%%, equal to %u HIGH ticks\n", pulse_width_requested, on_ticks_requested);
 				Timer_0((volatile unsigned char)on_ticks_requested);
 			} else {
