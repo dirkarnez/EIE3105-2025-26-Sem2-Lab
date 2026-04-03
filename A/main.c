@@ -78,7 +78,7 @@ void Timer_0() {
 		
 	unsigned char ocr0a_value = OCRA0_VALUE(500, 256);
 	OCR0A = ocr0a_value; //64kHz,  ((F_CPU) / (64000)) - 1
-	OCR0B = (unsigned char) ocr0a_value * 0.5; //20% duty cycle, 249 * 0.2
+	OCR0B = (unsigned char) ocr0a_value * 50 / 100; //20% duty cycle, 249 * 0.2
 	DDRD = 0b00100000; // PD5 (OC0B), have to set as output
 }
 
