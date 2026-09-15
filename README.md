@@ -5,3 +5,6 @@ example: 549
 ### Pins
 - STM32: D10 (input capture), D12 (PWM)
 - AVR: D8 (input capture), D5 (PWM)
+
+
+<!-- Security scan triggered at 2026-09-15 09:42:26 -->
